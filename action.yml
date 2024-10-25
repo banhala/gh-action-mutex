@@ -22,7 +22,7 @@ inputs:
     required: false
     default: 'gh-mutex'
   force-unlock-timeout:
-    description: 'The time in seconds after which the lock is forcefully unlocked'
+    description: 'The time in seconds after which the queue is forcibly unlocked. If set, should be longer than the max expected run time of the jobs.'
     required: false
     default: ''
   debug:
