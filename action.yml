@@ -21,6 +21,10 @@ inputs:
     description: 'The branch to use for the mutex'
     required: false
     default: 'gh-mutex'
+  force-unlock-timeout:
+    description: 'The time in seconds after which the lock is forcefully unlocked'
+    required: false
+    default: ''
   debug:
     description: 'Print debug output'
     required: false
@@ -35,10 +39,10 @@ runs:
   env:
     ARG_BRANCH: ${{ inputs.branch }}
     ARG_CHECKOUT_LOCATION: ${{ inputs.internal_checkout-location }}
+    ARG_FORCE_UNLOCK_TIMEOUT: ${{ inputs.force-unlock-timeout }}
     ARG_GITHUB_SERVER: ${{ inputs.github_server }}
     ARG_REPOSITORY: ${{ inputs.repository }}
     ARG_REPO_TOKEN: ${{ inputs.repo-token }}
     ARG_DEBUG: ${{ inputs.debug }}
   entrypoint: '/scripts/lock.sh'
   post-entrypoint: '/scripts/unlock.sh'
-

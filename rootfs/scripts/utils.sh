@@ -66,7 +66,7 @@ enqueue() {
 #   $1: branch
 #   $2: queue_file
 #   $3: ticket_id
-wait_for_lock() {
+_wait_for_lock() {
 	__branch=$1
 	__queue_file=$2
 	__ticket_id=$3
@@ -79,12 +79,41 @@ wait_for_lock() {
 		if [ "$cur_lock" != "$__ticket_id" ]; then
 			echo "[$__ticket_id] Waiting for lock - Current lock assigned to [$cur_lock]"
 			sleep 5
-			wait_for_lock $@
+			_wait_for_lock $@
 		fi
 	else
 		echo "[$__ticket_id] $__queue_file unexpectedly empty, continuing"
 	fi
 }
+# Wait for the lock to become available,
+#   but if timeout is specified, then force unlock heads until we get the lock
+# args:
+#   $1: branch
+#   $2: queue_file
+#   $3: ticket_id
+#   $4: timeout
+wait_for_lock() {
+	__timeout=$4
+
+	# Wait for lock w/o timeout
+	if [ -z "$__timeout" ]; then
+		_wait_for_lock $1 $2 $3
+		return
+	fi
+
+	# Wait for lock with timeout
+	__exit_code=143
+	while [ $__exit_code -eq 143 ]; do
+		timeout $__timeout bash -c "source $SCRIPT_DIR/utils.sh && _wait_for_lock $1 $2 $3" &&
+			__exit_code=0 ||
+			__exit_code=$? # timeout returns 143
+
+		if [ $__exit_code -eq 143 ]; then
+			dequeue_head $1 $2 $3
+		fi
+	done
+}
+
 # Remove from the queue, when locked by it or just enqueued
 # args:
 #   $1: branch
@@ -128,4 +157,36 @@ dequeue() {
 		dequeue $@
 	fi
 }
+# Remove current head from queue
+# args:
+#   $1: branch
+#   $2: queue_file
+#   $3: ticket_id
+dequeue_head() {
+	__branch=$1
+	__queue_file=$2
+	__ticket_id=$3
 
+	__has_error=0
+
+	update_branch $__branch
+
+	# Remove head
+	cur_lock=$(head -n 1 $__queue_file)
+	echo "[$__ticket_id] Waiting for lock - Force unlocking [$cur_lock]"
+	__message="[$cur_lock] Force unlock by $__ticket_id"
+	sed -i '1d' "$__queue_file"
+
+	git add $__queue_file
+	git commit -m "$__message" --quiet
+
+	set +e # allow errors
+	git push --set-upstream origin $__branch --quiet
+	__has_error=$((__has_error + $?))
+	set -e
+
+	if [ ! $__has_error -eq 0 ]; then
+		sleep 1
+		dequeue_head $@
+	fi
+}
