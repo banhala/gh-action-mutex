@@ -19,35 +19,50 @@ jobs:
           echo "I am protected!"
           sleep 5
 
+  two_clients_test_setup:
+    runs-on: ubuntu-latest
+    name: Set up two clients test
+    needs: [simple_test]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Plant faulty lock (step 1)
+        run: |
+          # Prevent dequeue
+          sed -i "/^  post-entrypoint:/d" ./action.yml
+      - name: Plant faulty lock (step 2)
+        uses: ./
+        with:
+          branch: gh-mutex-two-clients-test
+
   two_clients_test_client_1:
     runs-on: ubuntu-latest
     name: Two clients test (client 1)
-    needs: [simple_test]
+    needs: [two_clients_test_setup]
     steps:
       - uses: actions/checkout@v3
       - name: Set up mutex
         uses: ./
         with:
           branch: gh-mutex-two-clients-test
-          force-unlock-timeout: 20
+          force-unlock-timeout: 21
       - run: |
           echo "I am protected! (Client 1)"
-          sleep 50
+          sleep 20
 
   two_clients_test_client_2:
     runs-on: ubuntu-latest
     name: Two clients test (client 2)
-    needs: [simple_test]
+    needs: [two_clients_test_setup]
     steps:
       - uses: actions/checkout@v3
       - name: Set up mutex
         uses: ./
         with:
           branch: gh-mutex-two-clients-test
-          force-unlock-timeout: 20
+          force-unlock-timeout: 21
       - run: |
           echo "I am protected! (Client 2)"
-          sleep 50
+          sleep 20
 
   debug_test:
     runs-on: ubuntu-latest
