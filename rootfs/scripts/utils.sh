@@ -184,8 +184,13 @@ try_to_dequeue_head() {
 	git add $__queue_file
 	git commit -m "$__message" --quiet
 
-	set +e # allow errors
-	git push --set-upstream origin $__branch --quiet &&
-		echo "[$__ticket_id] Force unlocked previous head [$cur_lock]"
-	set -e
+	# Try to push
+	while ! git push --set-upstream origin $__branch --quiet && echo "[$__ticket_id] Force unlocked previous head [$cur_lock]"; do
+		# On push fail, rebase and try again
+		if ! git pull --rebase; then # TODO: --quiet
+			# On rebase fail, abort
+			git rebase --abort # TODO: --quiet
+			break
+		fi
+	done
 }
